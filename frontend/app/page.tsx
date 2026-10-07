@@ -479,7 +479,10 @@ export default function RiskIntelUpayDashboard() {
   const [lastAssessedAt, setLastAssessedAt] = useState<string>('');
   const [showBalance, setShowBalance] = useState<boolean>(false);
   const [referenceNote, setReferenceNote] = useState<string>('');
-  const [pin, setPin] = useState<string>('1234');
+  const [pin, setPin] = useState<string>('');
+  const [pinError, setPinError] = useState<string | null>(null);
+  const [isPinFocused, setIsPinFocused] = useState<boolean>(false);
+  const pinInputRef = useRef<HTMLInputElement | null>(null);
   const [isHydrated, setIsHydrated] = useState<boolean>(false);
 
   // Modal State
@@ -580,6 +583,28 @@ export default function RiskIntelUpayDashboard() {
   const isPinValid = pin.length === 4;
   const isSubmitDisabled = loading || validationError !== null || !isPinValid;
 
+  // Strict Transaction Submission Handler
+  const handleTransactionSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (currentAmount <= 0) {
+      return;
+    }
+
+    if (validationError) {
+      return;
+    }
+
+    if (pin.length !== 4) {
+      setPinError('অনুগ্রহ করে ৪ ডিজিটের সঠিক upay পিন নম্বর দিন');
+      pinInputRef.current?.focus();
+      return;
+    }
+
+    setPinError(null);
+    assessRisk(undefined, true);
+  };
+
   // Replenish Demo Balance (+৳20,000)
   const handleTopUp = () => {
     setBalance((prev) => {
@@ -671,6 +696,8 @@ export default function RiskIntelUpayDashboard() {
     setOtpVerified(false);
     setRecoveryMode(false);
     setRecoverySuccess(false);
+    setPin('1234');
+    setPinError(null);
     assessRisk(scenarioData, true);
   };
 
@@ -748,6 +775,8 @@ export default function RiskIntelUpayDashboard() {
             if (parsedResult.recommended_action === 'APPROVE') {
               deductBalance(dataToAssess.txn_amount);
             }
+            setPin('');
+            setPinError(null);
           }
           return;
         }
@@ -826,6 +855,8 @@ export default function RiskIntelUpayDashboard() {
         if (action === 'APPROVE') {
           deductBalance(dataToAssess.txn_amount);
         }
+        setPin('');
+        setPinError(null);
       }
     } finally {
       setLoading(false);
@@ -891,6 +922,8 @@ export default function RiskIntelUpayDashboard() {
       setVerifyingOtp(false);
       setOtpVerified(true);
       deductBalance(formData.txn_amount);
+      setPin('');
+      setPinError(null);
     }, 500);
   };
 
@@ -905,6 +938,8 @@ export default function RiskIntelUpayDashboard() {
       const resetTelemetry = { ...formData, failed_pin_attempts_24h: 0 };
       setFormData(resetTelemetry);
       assessRisk(resetTelemetry, false);
+      setPin('');
+      setPinError(null);
     }, 600);
   };
 
@@ -913,6 +948,8 @@ export default function RiskIntelUpayDashboard() {
     setRecoveryMode(false);
     setRecoverySuccess(false);
     setOtpVerified(false);
+    setPin('');
+    setPinError(null);
   };
 
   return (
@@ -1218,12 +1255,7 @@ export default function RiskIntelUpayDashboard() {
 
                   {/* Transaction Submission Form */}
                   <form
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      if (!isSubmitDisabled) {
-                        assessRisk(undefined, true);
-                      }
-                    }}
+                    onSubmit={handleTransactionSubmit}
                     className="space-y-3.5"
                   >
                     
@@ -1316,30 +1348,125 @@ export default function RiskIntelUpayDashboard() {
                     </div>
 
                     {/* Realistic MFS 4-Digit PIN Input Field */}
-                    <div className="bg-white rounded-2xl p-3 border border-slate-200 shadow-sm space-y-1.5">
+                    <div className="bg-white rounded-2xl p-3.5 border border-slate-200 shadow-sm space-y-2">
                       <div className="flex items-center justify-between">
-                        <label htmlFor="mfs-pin" className="text-xs font-bold text-[#063254] flex items-center gap-1.5">
+                        <label
+                          htmlFor="mfs-pin"
+                          className="text-xs font-bold text-[#063254] flex items-center gap-1.5 cursor-pointer"
+                          onClick={() => pinInputRef.current?.focus()}
+                        >
                           <Lock className="h-3.5 w-3.5 text-[#063254]" />
                           <span>আপনার upay পিন নম্বর দিন</span>
                         </label>
-                        <span className="text-[10px] text-slate-400 font-mono">৪ সংখ্যা</span>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPin('1234');
+                              setPinError(null);
+                              pinInputRef.current?.focus();
+                            }}
+                            className="text-[10px] font-bold text-slate-400 hover:text-[#063254] hover:underline transition cursor-pointer"
+                            title="ক্লিক করে টেস্ট পিন ১২৩৪ বসান"
+                          >
+                            টেস্ট পিন (1234)
+                          </button>
+                          <span
+                            className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded ${
+                              pin.length === 4
+                                ? 'bg-emerald-50 text-emerald-700'
+                                : 'bg-slate-100 text-slate-500'
+                            }`}
+                          >
+                            {pin.length}/৪
+                          </span>
+                        </div>
                       </div>
-                      <input
-                        id="mfs-pin"
-                        type="password"
-                        maxLength={4}
-                        value={pin}
-                        onChange={(e) => {
-                          const digitsOnly = e.target.value.replace(/\D/g, '').slice(0, 4);
-                          setPin(digitsOnly);
-                        }}
-                        placeholder="••••"
-                        className="w-full py-2 px-3 text-center text-lg font-black font-mono tracking-widest text-[#063254] bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-[#FFC800] focus:bg-white transition"
-                        required
-                      />
-                      {pin.length > 0 && pin.length < 4 && (
-                        <p className="text-[10px] text-red-500 font-medium text-center">
-                          ৪ সংখ্যার সঠিক পিন নম্বর প্রদান করুন
+
+                      {/* Interactive Masked PIN Indicator Cells & Overlay Input */}
+                      <div
+                        className="relative cursor-text rounded-xl p-1"
+                        onClick={() => pinInputRef.current?.focus()}
+                      >
+                        {/* 4 Visual Masked PIN Cells */}
+                        <div className="flex items-center justify-center gap-3 py-1">
+                          {[0, 1, 2, 3].map((idx) => {
+                            const isFilled = idx < pin.length;
+                            const isCurrent = isPinFocused && idx === pin.length;
+                            return (
+                              <div
+                                key={idx}
+                                className={`w-11 h-12 rounded-xl flex items-center justify-center border-2 transition-all duration-150 ${
+                                  isFilled
+                                    ? 'border-[#063254] bg-[#063254]/5 shadow-sm'
+                                    : isCurrent
+                                    ? 'border-[#FFC800] bg-amber-50 ring-2 ring-[#FFC800]/40'
+                                    : 'border-slate-200 bg-slate-50'
+                                }`}
+                              >
+                                {isFilled ? (
+                                  <span className="text-2xl font-black text-[#063254] leading-none select-none">
+                                    ●
+                                  </span>
+                                ) : (
+                                  <span className="text-xs text-slate-300 font-mono select-none">
+                                    ○
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        {/* Interactive Real Overlay Input */}
+                        <input
+                          ref={pinInputRef}
+                          id="mfs-pin"
+                          name="mfs_pin"
+                          type="password"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          autoComplete="off"
+                          maxLength={4}
+                          value={pin}
+                          onFocus={() => setIsPinFocused(true)}
+                          onBlur={() => setIsPinFocused(false)}
+                          onChange={(e) => {
+                            const digitsOnly = e.target.value.replace(/\D/g, '').slice(0, 4);
+                            setPin(digitsOnly);
+                            if (digitsOnly.length === 4) {
+                              setPinError(null);
+                            }
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              handleTransactionSubmit(e);
+                            }
+                          }}
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-text z-10"
+                          aria-label="৪ ডিজিটের upay গোপন পিন"
+                          required
+                        />
+                      </div>
+
+                      {/* Real-time Validation Message */}
+                      {pinError ? (
+                        <div className="flex items-center justify-center gap-1.5 text-red-600 font-bold text-[11px] pt-0.5">
+                          <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" />
+                          <span>{pinError}</span>
+                        </div>
+                      ) : pin.length === 0 ? (
+                        <p className="text-[10px] text-slate-400 font-medium text-center">
+                          লেনদেন সম্পন্ন করতে ৪ ডিজিটের গোপন পিন টাইপ করুন
+                        </p>
+                      ) : pin.length < 4 ? (
+                        <p className="text-[10px] text-amber-600 font-semibold text-center">
+                          আরও {4 - pin.length} টি সংখ্যা প্রবেশ করান
+                        </p>
+                      ) : (
+                        <p className="text-[10px] text-emerald-600 font-bold text-center flex items-center justify-center gap-1">
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                          <span>পিন সঠিক আছে। লেনদেন নিশ্চিত করতে পারেন।</span>
                         </p>
                       )}
                     </div>
