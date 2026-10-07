@@ -238,8 +238,22 @@ function TransactionFeedbackModal({
   if (!isOpen) return null;
 
   const currentAmount = Number(formData.txn_amount) || 0;
-  const [twoFaOtp, setTwoFaOtp] = useState<string>('123456');
-  const [recoveryOtp, setRecoveryOtp] = useState<string>('123456');
+  const [twoFaOtp, setTwoFaOtp] = useState<string>('');
+  const [recoveryOtp, setRecoveryOtp] = useState<string>('');
+  const twoFaInputRef = useRef<HTMLInputElement | null>(null);
+  const recoveryInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      setTwoFaOtp('');
+      setRecoveryOtp('');
+      if (recoveryMode) {
+        setTimeout(() => recoveryInputRef.current?.focus(), 80);
+      } else if (result.recommended_action === 'STEP_UP_2FA') {
+        setTimeout(() => twoFaInputRef.current?.focus(), 80);
+      }
+    }
+  }, [isOpen, recoveryMode, result.recommended_action]);
 
   return (
     <div className="absolute inset-0 z-30 bg-[#063254]/60 backdrop-blur-sm flex items-end justify-center p-3 animate-in fade-in duration-200">
@@ -337,16 +351,22 @@ function TransactionFeedbackModal({
 
             {!otpVerified ? (
               <div className="space-y-3">
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-center gap-1.5">
+                <div className="space-y-2">
+                  <div
+                    onClick={() => twoFaInputRef.current?.focus()}
+                    className="flex items-center justify-center gap-1.5 py-1 cursor-text"
+                  >
                     {[0, 1, 2, 3, 4, 5].map((idx) => {
                       const char = twoFaOtp[idx] || '';
+                      const isCurrent = twoFaOtp.length === idx;
                       return (
                         <div
                           key={idx}
-                          className={`h-11 w-9 rounded-xl border-2 flex items-center justify-center font-mono font-black text-base transition-all ${
+                          className={`h-11 w-9 rounded-xl border-2 flex items-center justify-center font-mono font-black text-base transition-all select-none ${
                             char
                               ? 'border-[#063254] bg-[#063254]/5 text-[#063254]'
+                              : isCurrent
+                              ? 'border-[#FFC800] bg-amber-50/50 text-slate-400'
                               : 'border-slate-200 bg-slate-50 text-slate-300'
                           }`}
                         >
@@ -359,39 +379,55 @@ function TransactionFeedbackModal({
                   {/* Real Input Overlay for 2FA */}
                   <div className="relative">
                     <input
+                      ref={twoFaInputRef}
                       type="text"
                       inputMode="numeric"
                       pattern="[0-9]*"
                       maxLength={6}
+                      autoFocus
                       value={twoFaOtp}
                       onChange={(e) => {
                         setServerError(null);
                         setTwoFaOtp(e.target.value.replace(/\D/g, '').slice(0, 6));
                       }}
-                      placeholder="৬-সংখ্যার কোড টাইপ করুন"
-                      className="w-full py-2 px-3 text-center text-sm font-bold font-mono tracking-widest text-[#063254] bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-[#FFC800] transition"
+                      placeholder="৬-সংখ্যার কোড টাইপ করুন (যেমন: 123456)"
+                      className="w-full py-2.5 px-3 text-center text-sm font-bold font-mono tracking-widest text-[#063254] bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-[#FFC800] focus:bg-white transition"
                     />
                   </div>
 
                   {/* Quick Test Helper Chips */}
-                  <div className="flex items-center justify-center gap-2 pt-1 text-[10px]">
+                  <div className="flex flex-wrap items-center justify-center gap-2 pt-1 text-[10px]">
                     <button
                       type="button"
                       onClick={() => {
                         setServerError(null);
                         setTwoFaOtp('123456');
+                        twoFaInputRef.current?.focus();
                       }}
-                      className="font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 px-2 py-0.5 rounded border border-amber-200 transition cursor-pointer"
+                      className="font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 px-2.5 py-1 rounded-lg border border-amber-200 transition cursor-pointer flex items-center gap-1 shadow-2xs"
                     >
-                      টেস্ট ওটিপি: 123456
+                      <span>টেস্ট ওটিপি: 123456</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setServerError(null);
+                        setTwoFaOtp('123456');
+                        twoFaInputRef.current?.focus();
+                      }}
+                      className="font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-lg border border-emerald-200 transition cursor-pointer flex items-center gap-1 shadow-2xs"
+                    >
+                      <Sparkles className="h-3 w-3 text-emerald-600" />
+                      <span>অটো-ফিল টেস্ট ওটিপি</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => {
                         setServerError(null);
                         setTwoFaOtp('999999');
+                        twoFaInputRef.current?.focus();
                       }}
-                      className="text-slate-500 hover:text-red-600 px-1.5 py-0.5 rounded transition cursor-pointer"
+                      className="font-medium text-slate-500 hover:text-red-600 px-2 py-1 rounded transition cursor-pointer"
                     >
                       ভুল কোড টেস্ট
                     </button>
@@ -534,16 +570,22 @@ function TransactionFeedbackModal({
                   </div>
                 )}
 
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-center gap-1.5 py-1">
+                <div className="space-y-2">
+                  <div
+                    onClick={() => recoveryInputRef.current?.focus()}
+                    className="flex items-center justify-center gap-1.5 py-1 cursor-text"
+                  >
                     {[0, 1, 2, 3, 4, 5].map((idx) => {
                       const char = recoveryOtp[idx] || '';
+                      const isCurrent = recoveryOtp.length === idx;
                       return (
                         <div
                           key={idx}
-                          className={`h-11 w-9 rounded-xl border-2 flex items-center justify-center font-mono font-black text-base transition-all ${
+                          className={`h-11 w-9 rounded-xl border-2 flex items-center justify-center font-mono font-black text-base transition-all select-none ${
                             char
                               ? 'border-[#063254] bg-[#063254]/5 text-[#063254]'
+                              : isCurrent
+                              ? 'border-[#FFC800] bg-amber-50/50 text-slate-400'
                               : 'border-slate-200 bg-slate-50 text-slate-300'
                           }`}
                         >
@@ -554,29 +596,55 @@ function TransactionFeedbackModal({
                   </div>
 
                   <input
+                    ref={recoveryInputRef}
                     type="text"
                     inputMode="numeric"
                     pattern="[0-9]*"
                     maxLength={6}
+                    autoFocus
                     value={recoveryOtp}
                     onChange={(e) => {
                       setServerError(null);
                       setRecoveryOtp(e.target.value.replace(/\D/g, '').slice(0, 6));
                     }}
-                    placeholder="জরুরি ওটিপি লিখুন"
-                    className="w-full py-2 px-3 text-center text-sm font-bold font-mono tracking-widest text-[#063254] bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-[#FFC800] transition"
+                    placeholder="জরুরি ওটিপি লিখুন (যেমন: 123456)"
+                    className="w-full py-2.5 px-3 text-center text-sm font-bold font-mono tracking-widest text-[#063254] bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-[#FFC800] focus:bg-white transition"
                   />
 
-                  <div className="flex items-center justify-center gap-2 pt-1 text-[10px]">
+                  <div className="flex flex-wrap items-center justify-center gap-2 pt-1 text-[10px]">
                     <button
                       type="button"
                       onClick={() => {
                         setServerError(null);
                         setRecoveryOtp('123456');
+                        recoveryInputRef.current?.focus();
                       }}
-                      className="font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 px-2 py-0.5 rounded border border-amber-200 transition cursor-pointer"
+                      className="font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 px-2.5 py-1 rounded-lg border border-amber-200 transition cursor-pointer flex items-center gap-1 shadow-2xs"
                     >
-                      টেস্ট ওটিপি: 123456
+                      <span>টেস্ট ওটিপি: 123456</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setServerError(null);
+                        setRecoveryOtp('123456');
+                        recoveryInputRef.current?.focus();
+                      }}
+                      className="font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-lg border border-emerald-200 transition cursor-pointer flex items-center gap-1 shadow-2xs"
+                    >
+                      <Sparkles className="h-3 w-3 text-emerald-600" />
+                      <span>অটো-ফিল টেস্ট ওটিপি</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setServerError(null);
+                        setRecoveryOtp('999999');
+                        recoveryInputRef.current?.focus();
+                      }}
+                      className="font-medium text-slate-500 hover:text-red-600 px-2 py-1 rounded transition cursor-pointer"
+                    >
+                      ভুল কোড টেস্ট (999999)
                     </button>
                   </div>
                 </div>
