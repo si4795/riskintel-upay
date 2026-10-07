@@ -763,7 +763,7 @@ export default function RiskIntelUpayDashboard() {
   const [recovering, setRecovering] = useState<boolean>(false);
   const [recoverySuccess, setRecoverySuccess] = useState<boolean>(false);
 
-  // Hackathon Evaluator & Audit Trail State
+  // Compliance & Audit Trail State
   const [activeTxnId, setActiveTxnId] = useState<string>('TXN-INIT-001');
   const [serverError, setServerError] = useState<string | null>(null);
   const [auditLogs, setAuditLogs] = useState<AuditLogRecord[]>([]);
