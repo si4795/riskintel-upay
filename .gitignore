@@ -8,3 +8,5 @@ backend/__pycache__/
 *.pyc
 *.tsbuildinfo
 .DS_Store
+*.db-wal
+*.db-shm
